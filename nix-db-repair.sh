@@ -44,11 +44,21 @@ while true; do
         break
     fi
 
-    # Check if the last line of the error output matches the specific error
-    last_line=$(echo "$error_output" | tail -n 1)
-    if [[ $last_line == "error: executing SQLite statement 'delete from ValidPaths where path = '$NIX_STORE_PATH/"*"';':"* ]]; then
-        # Extract the HASH
-        HASH=$(extract_hash "$last_line")
+    found_paths=false
+    while read -r line; do
+        if [ "${line:0:27}" = 'warning: cannot repair path' ]; then
+            # warning: cannot repair path '/nix/store/6d93r9s14q9rx980w4w8zqg88cf6i33w-system-path.drv'
+            path=${line#*\'}; path=${path%%\'*}
+        elif [ "${line:0:68}" = "error: executing SQLite statement 'delete from ValidPaths where path" ]; then
+            # error: executing SQLite statement 'delete from ValidPaths where path = '/nix/store/f2w0m2d36xmpj827qs4q6qs97nmzv205-unit-dbus.service.drv';': constraint failed, FOREIGN KEY constraint failed (in '/nix/var/nix/db/db.sqlite')
+            path=${line#*\'*\'}; path=${path%%\'*}
+        else
+            continue
+        fi
+        found_paths=true
+        echo "$line"
+        echo "broken path: ${path@Q}"
+        HASH=$(extract_hash "$path")
         if [ -n "$HASH" ]; then
             echo "Found problematic HASH: $HASH"
             # Avoid reprocessing the same hash
@@ -73,12 +83,9 @@ while true; do
             echo "Failed to extract HASH from error message"
             exit 1
         fi
-    else
-        echo "Unexpected error occurred:"
-        echo "$error_output"
-        exit 1
-    fi
-    LAST_HASH="$HASH"
+    done <<<"$error_output"
+
+    if $found_paths; then break; fi
 done
 
 echo "All 'nix-store --verify --repair' operations completed."
