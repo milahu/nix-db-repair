@@ -35,12 +35,12 @@ extract_hash() {
 
 # Main loop
 while true; do
-    # Run nix-store --gc and capture stderr while discarding stdout
-    error_output=$(nix-store --gc 2>&1 >/dev/null)
+    # Run nix-store --verify --repair and capture stderr while discarding stdout
+    error_output=$(nix-store --verify --repair 2>&1 >/dev/null)
 
     # Check if the error output is empty (meaning no errors occurred)
     if [ -z "$error_output" ]; then
-        echo "nix-store --gc completed successfully."
+        echo "nix-store --verify --repair completed successfully."
         break
     fi
 
@@ -81,4 +81,4 @@ while true; do
     LAST_HASH="$HASH"
 done
 
-echo "All 'nix-store --gc' operations completed."
+echo "All 'nix-store --verify --repair' operations completed."
